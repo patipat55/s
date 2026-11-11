@@ -11,8 +11,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unzip project
-        run: unzip -o ShopeeFlashHelper.zip
+      - name: Find project
+        run: |
+          echo "--- ไฟล์ใน repo ---"
+          find . -type f -not -path './.git/*' | head -60
+          ZIP=$(find . -maxdepth 2 -iname '*.zip' -not -path './.git/*' | head -1)
+          if [ -n "$ZIP" ]; then
+            echo "แตกไฟล์: $ZIP"
+            unzip -o "$ZIP" -d _proj
+          fi
+          APP=$(find . -path ./.git -prune -o -type f -path '*/app/build.gradle.kts' -print | head -1)
+          if [ -z "$APP" ]; then
+            echo "ไม่พบโฟลเดอร์ app ในโปรเจกต์ (ไม่มี zip และไม่มีไฟล์ app/build.gradle.kts)"
+            exit 1
+          fi
+          DIR=$(dirname "$(dirname "$APP")")
+          echo "โปรเจกต์อยู่ที่: $DIR"
+          echo "DIR=$DIR" >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v4
         with:
@@ -24,10 +39,10 @@ jobs:
           gradle-version: 8.7
 
       - name: Build debug APK
-        working-directory: ShopeeFlashHelper
+        working-directory: ${{ env.DIR }}
         run: gradle assembleDebug
 
       - uses: actions/upload-artifact@v4
         with:
           name: shopee-flash-helper-apk
-          path: ShopeeFlashHelper/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.DIR }}/app/build/outputs/apk/debug/app-debug.apk
